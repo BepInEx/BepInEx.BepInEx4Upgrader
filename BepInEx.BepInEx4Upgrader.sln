@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28922.388
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BepInEx4", "BepInEx4\BepInEx4.csproj", "{4FFBA620-F5ED-47F9-B90C-DAD1316FD9B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BepInEx.BepInEx4Upgrader", "BepInEx.BepInEx4Upgrader\BepInEx.BepInEx4Upgrader.csproj", "{528AFA2D-1181-4EE5-B391-33F903890CDC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4FFBA620-F5ED-47F9-B90C-DAD1316FD9B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FFBA620-F5ED-47F9-B90C-DAD1316FD9B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FFBA620-F5ED-47F9-B90C-DAD1316FD9B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FFBA620-F5ED-47F9-B90C-DAD1316FD9B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{528AFA2D-1181-4EE5-B391-33F903890CDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{528AFA2D-1181-4EE5-B391-33F903890CDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{528AFA2D-1181-4EE5-B391-33F903890CDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{528AFA2D-1181-4EE5-B391-33F903890CDC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {87D7ADB6-7616-4A9D-A323-FE4A4649FF56}
+	EndGlobalSection
+EndGlobal
