@@ -149,7 +149,7 @@ namespace BepInEx.BepIn4Patcher
             if (directory != Paths.PluginPath)
                 return;
 
-            foreach (string dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll"))
+            foreach (string dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll", SearchOption.TopDirectoryOnly))
             {
                 try
                 {
