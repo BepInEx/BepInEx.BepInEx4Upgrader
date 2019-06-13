@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="ILRepacker" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+
+    <ItemGroup>
+      <InputAssemblies Include="$(OutputPath)\$(AssemblyName).dll" />
+      <InputAssemblies Include="$(OutputPath)\BepInEx4.dll" />
+      <InputAssemblies Include="$(OutputPath)\0Harmony_BepInEx4.dll" />
+    </ItemGroup>
+
+    <ILRepack
+      Parallel="true"
+      InputAssemblies="@(InputAssemblies)"
+      TargetKind="Dll"
+      OutputFile="$(OutputPath)\$(AssemblyName).dll"
+      LibraryPath="$(SolutionDir)\lib"
+    />
+
+  </Target>
+</Project>
