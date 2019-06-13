@@ -4,7 +4,7 @@ using Logger = BepInEx.Logging.Logger;
 using LogLevel4 = BepInEx4.Logging.LogLevel;
 using LogLevel = BepInEx.Logging.LogLevel;
 
-namespace BepInEx.Bepin4Loader
+namespace BepInEx.BepIn4Patcher
 {
     public class BepIn4Logger : BaseLogger
     {

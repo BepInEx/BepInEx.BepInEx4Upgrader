@@ -3,16 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using BepInEx.Bepin4Loader;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
+using BepInEx.Contract;
 using BepInEx.Logging;
+using HarmonyLib;
 using Mono.Cecil;
 
 namespace BepInEx.BepIn4Patcher
 {
     public class BepIn4Patcher
     {
+        private static HarmonyLib.Harmony
+            PatchInstance = new HarmonyLib.Harmony("com.bepinex.legacy.typeloaderpatcher");
+
         private static readonly ManualLogSource Logger = Logging.Logger.CreateLogSource("BepInEx4Loader");
 
         private static readonly ConfigFile Config =
@@ -21,8 +25,12 @@ namespace BepInEx.BepIn4Patcher
         private static readonly ConfigWrapper<string> BepInEx4PluginsPath = Config.Wrap(
             "Paths",
             "BepInEx4Plugins",
-            "Location of BepInEx 4 plugins inside BepInEx 5 plugins folder",
-            "bepinex4_plugins");
+            "Location of BepInEx 4 plugins relative to BepInEx root folder",
+            "");
+
+        private static string PluginsPath;
+        private static DefaultAssemblyResolver resolver;
+        private static ReaderParameters readerParameters;
 
         public static IEnumerable<string> TargetDLLs
         {
@@ -39,11 +47,9 @@ namespace BepInEx.BepIn4Patcher
 
         private static void ShimPlugins()
         {
-            var pluginsPath = Path.Combine(Paths.PluginPath, BepInEx4PluginsPath.Value);
-
-            if (!Directory.Exists(pluginsPath))
+            if (!Directory.Exists(PluginsPath))
             {
-                Directory.CreateDirectory(pluginsPath);
+                Directory.CreateDirectory(PluginsPath);
                 return;
             }
 
@@ -69,7 +75,7 @@ namespace BepInEx.BepIn4Patcher
 
             var assembliesToConvert = new Dictionary<string, AssemblyDefinition>();
 
-            foreach (var file in Directory.GetFiles(pluginsPath, "*.dll"))
+            foreach (var file in Directory.GetFiles(PluginsPath, "*.dll"))
             {
                 var name = Path.GetFileNameWithoutExtension(file);
 
@@ -137,10 +143,64 @@ namespace BepInEx.BepIn4Patcher
             }
         }
 
+        public static void TypeLoadHook(ref Dictionary<AssemblyDefinition, List<PluginInfo>> __result, string directory,
+            Func<TypeDefinition, PluginInfo> typeSelector)
+        {
+            if (directory != Paths.PluginPath)
+                return;
+
+            foreach (string dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll"))
+            {
+                try
+                {
+                    var ass = AssemblyDefinition.ReadAssembly(dll, readerParameters);
+
+                    var matches = ass.MainModule.Types.Select(typeSelector).Where(t => t != null).ToList();
+
+                    if (matches.Count == 0)
+                    {
+                        ass.Dispose();
+                        continue;
+                    }
+
+                    __result[ass] = matches;
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError(e.ToString());
+                }
+            }
+        }
+
+        private static void Finish()
+        {
+            PatchInstance.Patch(
+                typeof(TypeLoader).GetMethod(nameof(TypeLoader.FindPluginTypes)).MakeGenericMethod(typeof(PluginInfo)),
+                postfix: new HarmonyMethod(typeof(BepIn4Patcher).GetMethod(nameof(TypeLoadHook))));
+        }
+
         private static void RunPatcher()
         {
+            resolver = new DefaultAssemblyResolver();
+            readerParameters = new ReaderParameters {AssemblyResolver = resolver};
+
+            resolver.ResolveFailure += (sender, reference) =>
+            {
+                var name = new AssemblyName(reference.FullName);
+
+                if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters,
+                        out AssemblyDefinition assembly) ||
+                    Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
+                    Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly) ||
+                    Utility.TryResolveDllAssembly(name, PluginsPath, readerParameters, out assembly))
+                    return assembly;
+
+                return ResolveBepInEx4CecilAssembly(sender, reference);
+            };
+
+            PluginsPath = Path.Combine(Paths.BepInExRootPath, BepInEx4PluginsPath.Value);
+
             AppDomain.CurrentDomain.AssemblyResolve += ResolveBepInEx4Assemblies;
-            TypeLoader.AssemblyResolve += ResolveBepInEx4CecilAssembly;
 
             Logger.LogInfo("Starting BepInEx4 Migrator!");
 
@@ -148,7 +208,7 @@ namespace BepInEx.BepIn4Patcher
 
             Logger.LogInfo("Initializing BepInEx 4");
 
-            BepInEx4.Paths.PluginPath = Path.Combine(Paths.PluginPath, BepInEx4PluginsPath.Value);
+            BepInEx4.Paths.PluginPath = PluginsPath;
             BepInEx4.Logger.SetLogger(new BepIn4Logger());
         }
 
@@ -158,6 +218,7 @@ namespace BepInEx.BepIn4Patcher
             {
                 if (reference.Name == "BepInEx4" || reference.Name == "0Harmony_BepInEx4")
                     return AssemblyDefinition.ReadAssembly(Assembly.GetExecutingAssembly().Location);
+                return AssemblyDefinition.ReadAssembly(Path.Combine(PluginsPath, $"{reference.Name}.dll"));
             }
             catch (Exception)
             {
@@ -171,6 +232,15 @@ namespace BepInEx.BepIn4Patcher
             var name = new AssemblyName(args.Name).Name;
             if (name == "BepInEx4" || name == "0Harmony_BepInEx4")
                 return Assembly.GetExecutingAssembly();
+
+            try
+            {
+                return Assembly.LoadFile(Path.Combine(PluginsPath, $"{name}.dll"));
+            }
+            catch (Exception)
+            {
+            }
+
             return null;
         }
     }
