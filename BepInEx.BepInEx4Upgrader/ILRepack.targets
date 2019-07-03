@@ -5,7 +5,6 @@
     <ItemGroup>
       <InputAssemblies Include="$(OutputPath)\$(AssemblyName).dll" />
       <InputAssemblies Include="$(OutputPath)\BepInEx4.dll" />
-      <InputAssemblies Include="$(OutputPath)\0Harmony_BepInEx4.dll" />
     </ItemGroup>
 
     <ILRepack

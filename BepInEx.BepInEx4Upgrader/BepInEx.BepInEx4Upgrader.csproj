@@ -38,9 +38,6 @@
       <HintPath>..\lib\0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="0Harmony_BepInEx4">
-      <HintPath>..\lib\0Harmony_BepInEx4.dll</HintPath>
-    </Reference>
     <Reference Include="BepInEx">
       <HintPath>..\lib\BepInEx.dll</HintPath>
       <Private>False</Private>

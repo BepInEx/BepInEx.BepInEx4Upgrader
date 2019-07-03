@@ -37,9 +37,15 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>..\lib\0Harmony.dll</HintPath>
+    </Reference>
     <Reference Include="BepInEx">
       <HintPath>..\lib\BepInEx.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Harmony">
+      <HintPath>..\lib\BepInEx.Harmony.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="UnityEngine">
@@ -56,6 +62,16 @@
     <Compile Include="ConsoleUtil\ConsoleEncoding\ConsoleEncoding.PInvoke.cs" />
     <Compile Include="ConsoleUtil\SafeConsole.cs" />
     <Compile Include="BepInLogger.cs" />
+    <Compile Include="Harmony\FastAccess.cs" />
+    <Compile Include="Harmony\GetterHandler.cs" />
+    <Compile Include="Harmony\HarmonyInstance.cs" />
+    <Compile Include="Harmony\HarmonyMethodExtensions.cs" />
+    <Compile Include="Harmony\HarmonyParameter.cs" />
+    <Compile Include="Harmony\HarmonyPatch.cs" />
+    <Compile Include="Harmony\InstantiationHandler.cs" />
+    <Compile Include="Harmony\Patches.cs" />
+    <Compile Include="Harmony\PropertyMethod.cs" />
+    <Compile Include="Harmony\SetterHandler.cs" />
     <Compile Include="Logging\BaseLogger.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Logging\LogLevel.cs" />
