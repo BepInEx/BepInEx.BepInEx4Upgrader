@@ -14,7 +14,7 @@ namespace BepInEx.BepIn4Patcher
 {
     public class BepIn4Patcher
     {
-        private static HarmonyLib.Harmony
+        private static readonly HarmonyLib.Harmony
             PatchInstance = new HarmonyLib.Harmony("com.bepinex.legacy.typeloaderpatcher");
 
         private static readonly ManualLogSource Logger = Logging.Logger.CreateLogSource("BepInEx4Loader");
@@ -54,13 +54,17 @@ namespace BepInEx.BepIn4Patcher
             }
 
             var bepinTypes = new HashSet<string>();
+            var harmonyTypes = new HashSet<string>();
             var bepinFullTypes = new HashSet<string>();
+            var harmonyFullTypes = new HashSet<string>();
 
             using (var bepinAss = AssemblyDefinition.ReadAssembly(Assembly.GetExecutingAssembly().Location))
             {
                 foreach (var type in bepinAss.MainModule.Types)
                     if (type.Namespace.StartsWith("BepInEx4"))
                         bepinTypes.Add(type.Name);
+                    else if (type.Name.StartsWith("Harmony"))
+                        harmonyTypes.Add(type.Name);
             }
 
             using (var origBepInAss =
@@ -70,7 +74,14 @@ namespace BepInEx.BepIn4Patcher
                     bepinFullTypes.Add(type.FullName);
             }
 
-            DefaultAssemblyResolver resolver = new DefaultAssemblyResolver();
+            using (var origHarmonyAss =
+                AssemblyDefinition.ReadAssembly(Path.Combine(Paths.BepInExAssemblyDirectory, "0Harmony.dll")))
+            {
+                foreach (var type in origHarmonyAss.MainModule.Types)
+                    harmonyFullTypes.Add(type.FullName);
+            }
+
+            var resolver = new DefaultAssemblyResolver();
             resolver.ResolveFailure += ResolveBepInEx4CecilAssembly;
 
             var assembliesToConvert = new Dictionary<string, AssemblyDefinition>();
@@ -120,23 +131,31 @@ namespace BepInEx.BepIn4Patcher
                 var harmonyRef =
                     ass.MainModule.AssemblyReferences.FirstOrDefault(r => r.Name == "0Harmony" && r.Version.Major <= 1);
 
+                AssemblyNameReference harmony2Ref = null;
                 if (harmonyRef != null)
+                {
                     harmonyRef.Name = "0Harmony_BepInEx4";
+                    harmony2Ref = new AssemblyNameReference("0Harmony", new Version(2, 0, 0, 0));
+                    ass.MainModule.AssemblyReferences.Add(harmony2Ref);
+                }
 
                 // TODO: Maybe check against current BepInEx 5 DLL version?
                 var bepin5Ref = new AssemblyNameReference("BepInEx", new Version(5, 0, 0, 0));
                 ass.MainModule.AssemblyReferences.Add(bepin5Ref);
 
                 foreach (var tr in ass.MainModule.GetTypeReferences())
-                {
                     if (tr.Namespace.StartsWith("BepInEx"))
                     {
-                        if (bepinTypes.Contains(tr.Name)) // If it's a shimmed type, fix up name
-                            tr.Namespace = $"BepInEx4{tr.Namespace.Substring("BepInEx".Length)}";
-                        else if (bepinFullTypes.Contains(tr.FullName)) // If it's inside bepin 5, update scope
+                        if (!bepinTypes.Contains(tr.Name) && bepinFullTypes.Contains(tr.FullName)
+                        ) // If it's inside bepin 5, update scope
                             tr.Scope = bepin5Ref;
                     }
-                }
+                    else if (tr.Namespace.StartsWith("Harmony"))
+                    {
+                        if (!harmonyTypes.Contains(tr.Name) && bepinFullTypes.Contains(tr.FullName)
+                        ) // If it's inside harmony 2, change ref
+                            tr.Scope = harmony2Ref;
+                    }
 
                 ass.Write(path);
                 ass.Dispose();
@@ -149,8 +168,8 @@ namespace BepInEx.BepIn4Patcher
             if (directory != Paths.PluginPath)
                 return;
 
-            foreach (string dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll", SearchOption.TopDirectoryOnly))
-            {
+            foreach (var dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll",
+                SearchOption.TopDirectoryOnly))
                 try
                 {
                     var ass = AssemblyDefinition.ReadAssembly(dll, readerParameters);
@@ -169,7 +188,6 @@ namespace BepInEx.BepIn4Patcher
                 {
                     Logger.LogError(e.ToString());
                 }
-            }
         }
 
         private static void Finish()
@@ -189,7 +207,7 @@ namespace BepInEx.BepIn4Patcher
                 var name = new AssemblyName(reference.FullName);
 
                 if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters,
-                        out AssemblyDefinition assembly) ||
+                        out var assembly) ||
                     Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
                     Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly) ||
                     Utility.TryResolveDllAssembly(name, PluginsPath, readerParameters, out assembly))
