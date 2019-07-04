@@ -14,7 +14,7 @@ namespace BepInEx.BepIn4Patcher
 {
     public class BepIn4Patcher
     {
-        private static HarmonyLib.Harmony
+        private static readonly HarmonyLib.Harmony
             PatchInstance = new HarmonyLib.Harmony("com.bepinex.legacy.typeloaderpatcher");
 
         private static readonly ManualLogSource Logger = Logging.Logger.CreateLogSource("BepInEx4Loader");
@@ -28,9 +28,27 @@ namespace BepInEx.BepIn4Patcher
             "Location of BepInEx 4 plugins relative to BepInEx root folder",
             "");
 
+        private static readonly ConfigWrapper<bool> BackUpAssemblies = Config.Wrap(
+            "Patching",
+            "BackupAssemblies",
+            "Whether to back up original assemblies in bepinex4_backup folder",
+            true);
+
+        private static readonly ConfigWrapper<bool> PatchInMemory = Config.Wrap(
+            "Patching",
+            "PatchInMemory",
+            "If true, will perform patching in memory",
+            false);
+
         private static string PluginsPath;
         private static DefaultAssemblyResolver resolver;
         private static ReaderParameters readerParameters;
+
+        private static readonly Dictionary<string, MemoryAssembly> shimmedAssemblies =
+            new Dictionary<string, MemoryAssembly>();
+
+        private static readonly Dictionary<string, Assembly>
+            loadedMemoryAssemblies = new Dictionary<string, Assembly>();
 
         public static IEnumerable<string> TargetDLLs
         {
@@ -61,12 +79,10 @@ namespace BepInEx.BepIn4Patcher
             using (var bepinAss = AssemblyDefinition.ReadAssembly(Assembly.GetExecutingAssembly().Location))
             {
                 foreach (var type in bepinAss.MainModule.Types)
-                {
                     if (type.Namespace.StartsWith("BepInEx4"))
                         bepinTypes.Add(type.Name);
                     else if (type.Namespace.StartsWith("Harmony"))
                         harmonyTypes.Add(type.Name);
-                }
             }
 
             using (var origBepInAss =
@@ -83,7 +99,7 @@ namespace BepInEx.BepIn4Patcher
                     harmonyFullTypes[type.Name] = type.Namespace;
             }
 
-            DefaultAssemblyResolver resolver = new DefaultAssemblyResolver();
+            var resolver = new DefaultAssemblyResolver();
             resolver.ResolveFailure += ResolveBepInEx4CecilAssembly;
 
             var assembliesToConvert = new Dictionary<string, AssemblyDefinition>();
@@ -112,6 +128,21 @@ namespace BepInEx.BepIn4Patcher
                 catch (Exception e)
                 {
                     Logger.LogWarning($"Skipping loading {name} because: {e.Message}");
+                }
+            }
+
+            if (BackUpAssemblies.Value)
+            {
+                var backupDir = Path.Combine(Paths.BepInExRootPath, "bepinex4_backup");
+                if (!Directory.Exists(backupDir))
+                    Directory.CreateDirectory(backupDir);
+
+                foreach (var kv in assembliesToConvert)
+                {
+                    var filePath = kv.Key;
+                    var fileName = Path.GetFileName(filePath);
+
+                    File.Copy(filePath, Path.Combine(backupDir, fileName), true);
                 }
             }
 
@@ -146,24 +177,36 @@ namespace BepInEx.BepIn4Patcher
                 ass.MainModule.AssemblyReferences.Add(bepin5Ref);
 
                 foreach (var tr in ass.MainModule.GetTypeReferences())
-                {
                     if (tr.Namespace.StartsWith("BepInEx"))
                     {
                         if (bepinTypes.Contains(tr.Name)) // If it's a shimmed type, fix up name
                             tr.Namespace = $"BepInEx4{tr.Namespace.Substring("BepInEx".Length)}";
                         else if (bepinFullTypes.Contains(tr.FullName)) // If it's inside bepin 5, update scope
                             tr.Scope = bepin5Ref;
-                    } else if (tr.Namespace.StartsWith("Harmony"))
+                    }
+                    else if (tr.Namespace.StartsWith("Harmony"))
                     {
-                        if (!harmonyTypes.Contains(tr.Name) && harmonyFullTypes.TryGetValue(tr.Name, out var @namespace)) // If it's inside harmony 2, change ref
+                        if (!harmonyTypes.Contains(tr.Name) && harmonyFullTypes.TryGetValue(tr.Name, out var @namespace)
+                        ) // If it's inside harmony 2, change ref
                         {
                             tr.Namespace = @namespace;
                             tr.Scope = harmony2Ref;
                         }
                     }
-                }
 
-                ass.Write(path);
+                if (PatchInMemory.Value)
+                    using (var ms = new MemoryStream())
+                    {
+                        ass.Write(ms);
+                        shimmedAssemblies[ass.FullName] = new MemoryAssembly
+                        {
+                            data = ms.ToArray(),
+                            path = path
+                        };
+                    }
+                else
+                    ass.Write(path);
+
                 ass.Dispose();
             }
         }
@@ -174,11 +217,17 @@ namespace BepInEx.BepIn4Patcher
             if (directory != Paths.PluginPath)
                 return;
 
-            foreach (string dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll", SearchOption.TopDirectoryOnly))
-            {
+            foreach (var dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll",
+                SearchOption.TopDirectoryOnly))
                 try
                 {
                     var ass = AssemblyDefinition.ReadAssembly(dll, readerParameters);
+
+                    if (shimmedAssemblies.TryGetValue(ass.FullName, out var memAsm))
+                    {
+                        ass.Dispose();
+                        ass = AssemblyDefinition.ReadAssembly(new MemoryStream(memAsm.data), readerParameters);
+                    }
 
                     var matches = ass.MainModule.Types.Select(typeSelector).Where(t => t != null).ToList();
 
@@ -188,13 +237,20 @@ namespace BepInEx.BepIn4Patcher
                         continue;
                     }
 
+                    if (memAsm != null)
+                        foreach (var pluginInfo in matches)
+                        {
+                            typeof(PluginInfo).GetProperty(nameof(PluginInfo.Location))
+                                .SetValue(pluginInfo, memAsm.path, null);
+                            loadedMemoryAssemblies[ass.FullName] = Assembly.Load(memAsm.data);
+                        }
+
                     __result[ass] = matches;
                 }
                 catch (Exception e)
                 {
                     Logger.LogError(e.ToString());
                 }
-            }
         }
 
         private static void Finish()
@@ -214,11 +270,14 @@ namespace BepInEx.BepIn4Patcher
                 var name = new AssemblyName(reference.FullName);
 
                 if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters,
-                        out AssemblyDefinition assembly) ||
+                        out var assembly) ||
                     Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
                     Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly) ||
                     Utility.TryResolveDllAssembly(name, PluginsPath, readerParameters, out assembly))
                     return assembly;
+
+                if (shimmedAssemblies.TryGetValue(reference.FullName, out var memAsm))
+                    return AssemblyDefinition.ReadAssembly(new MemoryStream(memAsm.data), readerParameters);
 
                 return ResolveBepInEx4CecilAssembly(sender, reference);
             };
@@ -258,6 +317,9 @@ namespace BepInEx.BepIn4Patcher
             if (name == "BepInEx4" || name == "0Harmony_BepInEx4")
                 return Assembly.GetExecutingAssembly();
 
+            if (loadedMemoryAssemblies.TryGetValue(args.Name, out var res))
+                return res;
+
             try
             {
                 return Assembly.LoadFile(Path.Combine(PluginsPath, $"{name}.dll"));
@@ -267,6 +329,12 @@ namespace BepInEx.BepIn4Patcher
             }
 
             return null;
+        }
+
+        private class MemoryAssembly
+        {
+            public byte[] data;
+            public string path;
         }
     }
 }
