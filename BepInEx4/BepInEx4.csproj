@@ -23,6 +23,7 @@
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>
     </DocumentationFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -35,6 +36,7 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <DebugSymbols>false</DebugSymbols>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
@@ -62,21 +64,62 @@
     <Compile Include="ConsoleUtil\ConsoleEncoding\ConsoleEncoding.PInvoke.cs" />
     <Compile Include="ConsoleUtil\SafeConsole.cs" />
     <Compile Include="BepInLogger.cs" />
+    <Compile Include="Harmony\AccessCache.cs" />
+    <Compile Include="Harmony\AccessTools.cs" />
+    <Compile Include="Harmony\CodeInstruction.cs" />
+    <Compile Include="Harmony\CodeTranspiler.cs" />
+    <Compile Include="Harmony\CollectionExtensions.cs" />
+    <Compile Include="Harmony\DelegateTypeFactory.cs" />
+    <Compile Include="Harmony\DynamicTools.cs" />
     <Compile Include="Harmony\FastAccess.cs" />
+    <Compile Include="Harmony\FastInvokeHandler.cs" />
+    <Compile Include="Harmony\FileLog.cs" />
+    <Compile Include="Harmony\GeneralExtensions.cs" />
     <Compile Include="Harmony\GetterHandler.cs" />
+    <Compile Include="Harmony\HarmonyAfter.cs" />
+    <Compile Include="Harmony\HarmonyAttribute.cs" />
+    <Compile Include="Harmony\HarmonyBefore.cs" />
+    <Compile Include="Harmony\HarmonyCleanup.cs" />
     <Compile Include="Harmony\HarmonyInstance.cs" />
     <Compile Include="Harmony\HarmonyMethod.cs" />
     <Compile Include="Harmony\HarmonyMethodExtensions.cs" />
     <Compile Include="Harmony\HarmonyParameter.cs" />
     <Compile Include="Harmony\HarmonyPatch.cs" />
+    <Compile Include="Harmony\HarmonyPatchAll.cs" />
+    <Compile Include="Harmony\HarmonyPatchType.cs" />
+    <Compile Include="Harmony\HarmonyPostfix.cs" />
+    <Compile Include="Harmony\HarmonyPrefix.cs" />
+    <Compile Include="Harmony\HarmonyPrepare.cs" />
+    <Compile Include="Harmony\HarmonyPriority.cs" />
+    <Compile Include="Harmony\HarmonySharedState.cs" />
+    <Compile Include="Harmony\HarmonyTargetMethod.cs" />
+    <Compile Include="Harmony\HarmonyTargetMethods.cs" />
+    <Compile Include="Harmony\HarmonyTranspiler.cs" />
+    <Compile Include="Harmony\ILCopying\ByteBuffer.cs" />
+    <Compile Include="Harmony\ILCopying\Emitter.cs" />
+    <Compile Include="Harmony\ILCopying\ExceptionBlock.cs" />
+    <Compile Include="Harmony\ILCopying\ExceptionBlockType.cs" />
+    <Compile Include="Harmony\ILCopying\ILInstruction.cs" />
+    <Compile Include="Harmony\ILCopying\LeaveTry.cs" />
+    <Compile Include="Harmony\ILCopying\Memory.cs" />
+    <Compile Include="Harmony\ILCopying\MethodBodyReader.cs" />
+    <Compile Include="Harmony\ILCopying\MethodCopier.cs" />
+    <Compile Include="Harmony\ILCopying\Protection.cs" />
     <Compile Include="Harmony\InstantiationHandler.cs" />
-    <Compile Include="Harmony\Patches.cs" />
-    <Compile Include="Harmony\PatchFunctionsShim.cs" />
+    <Compile Include="Harmony\MethodInvoker.cs" />
+    <Compile Include="Harmony\MethodPatcher.cs" />
+    <Compile Include="Harmony\PatchFunctions.cs" />
+    <Compile Include="Harmony\PatchInfoSerialization.cs" />
     <Compile Include="Harmony\PatchProcessor.cs" />
     <Compile Include="Harmony\PatchTools.cs" />
+    <Compile Include="Harmony\Priority.cs" />
     <Compile Include="Harmony\PropertyMethod.cs" />
     <Compile Include="Harmony\SetterHandler.cs" />
-    <Compile Include="Harmony\SharedStateShim.cs" />
+    <Compile Include="Harmony\SymbolExtensions.cs" />
+    <Compile Include="Harmony\Tools\SelfPatching.cs" />
+    <Compile Include="Harmony\Transpilers.cs" />
+    <Compile Include="Harmony\Traverse.cs" />
+    <Compile Include="Harmony\UpgradeToLatestVersion.cs" />
     <Compile Include="Logging\BaseLogger.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Logging\LogLevel.cs" />
@@ -88,5 +131,6 @@
     <Compile Include="ShimUtil.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

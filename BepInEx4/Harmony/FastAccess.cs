@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reflection;
 using System.Reflection.Emit;
-using HarmonyLib;
 
 namespace Harmony
 {
@@ -9,14 +8,14 @@ namespace Harmony
     {
         public static InstantiationHandler CreateInstantiationHandler(Type type)
         {
-            var constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+            var constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null, new Type[0], null);
             if (constructor == null)
                 throw new ApplicationException(
                     $"The type {type} must declare an empty constructor (the constructor may be private, internal, protected, protected internal, or public).");
             var dynamicMethod = new DynamicMethod("InstantiateObject_" + type.Name,
                 MethodAttributes.FamANDAssem | MethodAttributes.Family | MethodAttributes.Static,
-                CallingConventions.VarArgs, typeof(object), null, type, true);
+                CallingConventions.Standard, typeof(object), null, type, true);
             var ilgenerator = dynamicMethod.GetILGenerator();
             ilgenerator.Emit(OpCodes.Newobj, constructor);
             ilgenerator.Emit(OpCodes.Ret);

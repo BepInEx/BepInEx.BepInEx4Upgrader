@@ -1,5 +1,4 @@
 ﻿using System;
-using HarmonyLib;
 
 namespace Harmony
 {
@@ -12,7 +11,7 @@ namespace Harmony
 
         public HarmonyPatch(Type type)
         {
-            info.declaringType = type;
+            info.originalType = type;
         }
 
         public HarmonyPatch(string methodName)
@@ -22,29 +21,29 @@ namespace Harmony
 
         public HarmonyPatch(string propertyName, PropertyMethod type)
         {
-            var text = type == PropertyMethod.Getter ? "get_" : "set_";
-            info.methodName = text + propertyName;
+            var str = type == PropertyMethod.Getter ? "get_" : "set_";
+            info.methodName = str + propertyName;
         }
 
         public HarmonyPatch(Type[] parameter)
         {
-            info.argumentTypes = parameter;
+            info.parameter = parameter;
         }
 
         public HarmonyPatch(Type type, string methodName, Type[] parameter = null, int[] byRef = null)
         {
-            info.declaringType = type;
+            info.originalType = type;
             info.methodName = methodName;
             if (byRef != null && byRef.Length <= parameter.Length)
                 for (var i = 0; i < byRef.Length; i++)
                     parameter[byRef[i]] = parameter[byRef[i]].MakeByRefType();
-            info.argumentTypes = parameter;
+            info.parameter = parameter;
         }
 
         public HarmonyPatch(Type type, Type[] parameter = null)
         {
-            info.declaringType = type;
-            info.argumentTypes = parameter;
+            info.originalType = type;
+            info.parameter = parameter;
         }
     }
 }

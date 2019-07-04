@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using HarmonyLib;
 
 namespace Harmony
 {
@@ -11,12 +10,21 @@ namespace Harmony
     {
         public static void CopyTo(this HarmonyMethod from, HarmonyMethod to)
         {
-            HarmonyLib.HarmonyMethodExtensions.CopyTo(from, to);
+            if (to == null) return;
+            var fromTrv = Traverse.Create(from);
+            var toTrv = Traverse.Create(to);
+            HarmonyMethod.HarmonyFields().ForEach(delegate(string f)
+            {
+                var value = fromTrv.Field(f).GetValue();
+                if (value != null) toTrv.Field(f).SetValue(value);
+            });
         }
 
         public static HarmonyMethod Clone(this HarmonyMethod original)
         {
-            return HarmonyMethod.Copy(HarmonyLib.HarmonyMethodExtensions.Clone(original));
+            var harmonyMethod = new HarmonyMethod();
+            original.CopyTo(harmonyMethod);
+            return harmonyMethod;
         }
 
         public static HarmonyMethod Merge(this HarmonyMethod master, HarmonyMethod detail)
@@ -37,15 +45,21 @@ namespace Harmony
 
         public static List<HarmonyMethod> GetHarmonyMethods(this Type type)
         {
-            return type.GetCustomAttributes(true).Where(attr => attr is HarmonyAttribute).Cast<HarmonyAttribute>()
-                .Select(attr => HarmonyMethod.Copy(attr.info)).ToList();
+            return (from HarmonyAttribute attr in
+                    from attr in type.GetCustomAttributes(true)
+                    where attr is HarmonyAttribute
+                    select attr
+                select attr.info).ToList();
         }
 
         public static List<HarmonyMethod> GetHarmonyMethods(this MethodBase method)
         {
             if (method is DynamicMethod) return new List<HarmonyMethod>();
-            return method.GetCustomAttributes(true).Where(attr => attr is HarmonyAttribute).Cast<HarmonyAttribute>()
-                .Select(attr => HarmonyMethod.Copy(attr.info)).ToList();
+            return (from HarmonyAttribute attr in
+                    from attr in method.GetCustomAttributes(true)
+                    where attr is HarmonyAttribute
+                    select attr
+                select attr.info).ToList();
         }
     }
 }
