@@ -16,7 +16,7 @@ namespace Harmony
 
         public static HarmonyMethod Clone(this HarmonyMethod original)
         {
-            return HarmonyLib.HarmonyMethodExtensions.Clone(original);
+            return HarmonyMethod.Copy(HarmonyLib.HarmonyMethodExtensions.Clone(original));
         }
 
         public static HarmonyMethod Merge(this HarmonyMethod master, HarmonyMethod detail)
@@ -38,14 +38,14 @@ namespace Harmony
         public static List<HarmonyMethod> GetHarmonyMethods(this Type type)
         {
             return type.GetCustomAttributes(true).Where(attr => attr is HarmonyAttribute).Cast<HarmonyAttribute>()
-                .Select(attr => attr.info).ToList();
+                .Select(attr => HarmonyMethod.Copy(attr.info)).ToList();
         }
 
         public static List<HarmonyMethod> GetHarmonyMethods(this MethodBase method)
         {
             if (method is DynamicMethod) return new List<HarmonyMethod>();
             return method.GetCustomAttributes(true).Where(attr => attr is HarmonyAttribute).Cast<HarmonyAttribute>()
-                .Select(attr => attr.info).ToList();
+                .Select(attr => HarmonyMethod.Copy(attr.info)).ToList();
         }
     }
 }

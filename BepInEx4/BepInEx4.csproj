@@ -65,13 +65,18 @@
     <Compile Include="Harmony\FastAccess.cs" />
     <Compile Include="Harmony\GetterHandler.cs" />
     <Compile Include="Harmony\HarmonyInstance.cs" />
+    <Compile Include="Harmony\HarmonyMethod.cs" />
     <Compile Include="Harmony\HarmonyMethodExtensions.cs" />
     <Compile Include="Harmony\HarmonyParameter.cs" />
     <Compile Include="Harmony\HarmonyPatch.cs" />
     <Compile Include="Harmony\InstantiationHandler.cs" />
     <Compile Include="Harmony\Patches.cs" />
+    <Compile Include="Harmony\PatchFunctionsShim.cs" />
+    <Compile Include="Harmony\PatchProcessor.cs" />
+    <Compile Include="Harmony\PatchTools.cs" />
     <Compile Include="Harmony\PropertyMethod.cs" />
     <Compile Include="Harmony\SetterHandler.cs" />
+    <Compile Include="Harmony\SharedStateShim.cs" />
     <Compile Include="Logging\BaseLogger.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Logging\LogLevel.cs" />
@@ -80,6 +85,7 @@
     <Compile Include="Paths.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Bootstrap\TypeLoader.cs" />
+    <Compile Include="ShimUtil.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
