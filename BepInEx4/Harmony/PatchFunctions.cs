@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using ShimHelpers;
 
@@ -10,8 +11,8 @@ namespace Harmony
         private static readonly Type patchFunctionsNew =
             typeof(HarmonyLib.Harmony).Assembly.GetType("HarmonyLib.PatchFunctions");
 
-        public static Action<MethodBase, PatchInfo, string> UpdateWrapper =
-            ShimUtil.MakeDelegate<Action<MethodBase, PatchInfo, string>>(patchFunctionsNew, nameof(UpdateWrapper));
+        public static Func<MethodBase, PatchInfo, string, DynamicMethod> UpdateWrapper =
+            ShimUtil.MakeDelegate<Func<MethodBase, PatchInfo, string, DynamicMethod>>(patchFunctionsNew, nameof(UpdateWrapper));
 
 
         public static void AddPrefix(PatchInfo patchInfo, string owner, HarmonyMethod info)
