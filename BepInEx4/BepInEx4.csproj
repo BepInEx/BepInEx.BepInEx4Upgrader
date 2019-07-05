@@ -106,8 +106,6 @@
     <Compile Include="Harmony\ILCopying\MethodCopier.cs" />
     <Compile Include="Harmony\ILCopying\Protection.cs" />
     <Compile Include="Harmony\InstantiationHandler.cs" />
-    <Compile Include="Harmony\MethodInvoker.cs" />
-    <Compile Include="Harmony\MethodPatcher.cs" />
     <Compile Include="Harmony\PatchFunctions.cs" />
     <Compile Include="Harmony\PatchInfoSerialization.cs" />
     <Compile Include="Harmony\PatchProcessor.cs" />
