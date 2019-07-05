@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using Harmony.Tools;
 using HarmonyLib;
 
 namespace Harmony
@@ -15,7 +14,6 @@ namespace Harmony
         private HarmonyInstance(string id)
         {
             Id = id;
-            SelfPatching.PatchOldHarmonyMethods();
         }
 
         public string Id { get; }
