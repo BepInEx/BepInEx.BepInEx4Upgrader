@@ -50,6 +50,10 @@ namespace BepInEx.BepIn4Patcher
         private static readonly Dictionary<string, Assembly>
             loadedMemoryAssemblies = new Dictionary<string, Assembly>();
 
+        private static HashSet<string> bepinTypes, harmonyTypes, bepinFullTypes;
+        private static Dictionary<string, string> harmonyFullTypes;
+        private static bool isInitialized;
+
         public static IEnumerable<string> TargetDLLs
         {
             get
@@ -63,7 +67,69 @@ namespace BepInEx.BepIn4Patcher
         {
         }
 
-        private static void ShimPlugins()
+        private static bool ShimPlugin(AssemblyDefinition plugin, string filePath = null)
+        {
+            if (!plugin.MainModule.AssemblyReferences.Any(r => r.Name == "BepInEx" && r.Version.Major <= 4) &&
+                !plugin.MainModule.AssemblyReferences.Any(r => r.Name == "0Harmony" && r.Version.Major <= 1))
+                return false;
+
+            if (plugin.MainModule.AssemblyResolver is DefaultAssemblyResolver pluginResolver)
+                pluginResolver.ResolveFailure += ResolveBepInEx4CecilAssembly;
+
+            if (BackUpAssemblies.Value && filePath != null)
+            {
+                var backupDir = Path.Combine(Paths.BepInExRootPath, "bepinex4_backup");
+                if (!Directory.Exists(backupDir))
+                    Directory.CreateDirectory(backupDir);
+
+                var fileName = Path.GetFileName(filePath);
+
+                File.Copy(filePath, Path.Combine(backupDir, fileName), true);
+            }
+
+            Logger.LogInfo($"Shimming {plugin.Name.Name}");
+
+            var bepin4Ref =
+                plugin.MainModule.AssemblyReferences.FirstOrDefault(r => r.Name == "BepInEx" && r.Version.Major <= 4);
+
+            if (bepin4Ref != null)
+                bepin4Ref.Name = "BepInEx4";
+
+            var harmonyRef =
+                plugin.MainModule.AssemblyReferences.FirstOrDefault(r => r.Name == "0Harmony" && r.Version.Major <= 1);
+
+            AssemblyNameReference harmony2Ref = null;
+            if (harmonyRef != null)
+            {
+                harmonyRef.Name = "0Harmony_BepInEx4";
+                harmony2Ref = new AssemblyNameReference("0Harmony", new Version(2, 0, 0, 0));
+                plugin.MainModule.AssemblyReferences.Add(harmony2Ref);
+            }
+
+            // TODO: Maybe check against current BepInEx 5 DLL version?
+            var bepin5Ref = new AssemblyNameReference("BepInEx", new Version(5, 0, 0, 0));
+            plugin.MainModule.AssemblyReferences.Add(bepin5Ref);
+
+            foreach (var tr in plugin.MainModule.GetTypeReferences())
+                if (tr.Namespace.StartsWith("BepInEx"))
+                {
+                    if (bepinTypes.Contains(tr.Name)) // If it's a shimmed type, fix up name
+                        tr.Namespace = $"BepInEx4{tr.Namespace.Substring("BepInEx".Length)}";
+                    else if (bepinFullTypes.Contains(tr.FullName)) // If it's inside bepin 5, update scope
+                        tr.Scope = bepin5Ref;
+                }
+                else if (tr.Namespace.StartsWith("Harmony"))
+                {
+                    if (harmonyTypes.Contains(tr.Name) ||
+                        !harmonyFullTypes.TryGetValue(tr.Name, out var @namespace)) continue;
+                    tr.Namespace = @namespace;
+                    tr.Scope = harmony2Ref;
+                }
+
+            return true;
+        }
+
+        private static void Prepare()
         {
             if (!Directory.Exists(PluginsPath))
             {
@@ -71,10 +137,10 @@ namespace BepInEx.BepIn4Patcher
                 return;
             }
 
-            var bepinTypes = new HashSet<string>();
-            var harmonyTypes = new HashSet<string>();
-            var bepinFullTypes = new HashSet<string>();
-            var harmonyFullTypes = new Dictionary<string, string>();
+            bepinTypes = new HashSet<string>();
+            harmonyTypes = new HashSet<string>();
+            bepinFullTypes = new HashSet<string>();
+            harmonyFullTypes = new Dictionary<string, string>();
 
             using (var bepinAss = AssemblyDefinition.ReadAssembly(Assembly.GetExecutingAssembly().Location))
             {
@@ -99,115 +165,42 @@ namespace BepInEx.BepIn4Patcher
                     harmonyFullTypes[type.Name] = type.Namespace;
             }
 
-            var resolver = new DefaultAssemblyResolver();
-            resolver.ResolveFailure += ResolveBepInEx4CecilAssembly;
+            isInitialized = true;
+        }
 
-            var assembliesToConvert = new Dictionary<string, AssemblyDefinition>();
-
+        private static void ShimPlugins()
+        {
             foreach (var file in Directory.GetFiles(PluginsPath, "*.dll"))
             {
                 var name = Path.GetFileNameWithoutExtension(file);
 
                 try
                 {
-                    var ass = AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(file)),
-                        new ReaderParameters
-                        {
-                            AssemblyResolver = resolver
-                        });
-
-                    if (!ass.MainModule.AssemblyReferences.Any(r => r.Name == "BepInEx" && r.Version.Major <= 4) &&
-                        !ass.MainModule.AssemblyReferences.Any(r => r.Name == "0Harmony" && r.Version.Major <= 1))
+                    using (var ass = AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(file))))
                     {
-                        ass.Dispose();
-                        continue;
-                    }
+                        if (ShimPlugin(ass, file))
+                        {
+                            if (PatchInMemory.Value)
+                                using (var ms = new MemoryStream())
+                                {
+                                    ass.Write(ms);
+                                    shimmedAssemblies[ass.FullName] = new MemoryAssembly
+                                    {
+                                        data = ms.ToArray(),
+                                        path = file
+                                    };
+                                }
+                            else
+                                ass.Write(file);
+                        }
 
-                    assembliesToConvert[file] = ass;
+                        ass.Dispose();
+                    }
                 }
                 catch (Exception e)
                 {
                     Logger.LogWarning($"Skipping loading {name} because: {e.Message}");
                 }
-            }
-
-            if (BackUpAssemblies.Value)
-            {
-                var backupDir = Path.Combine(Paths.BepInExRootPath, "bepinex4_backup");
-                if (!Directory.Exists(backupDir))
-                    Directory.CreateDirectory(backupDir);
-
-                foreach (var kv in assembliesToConvert)
-                {
-                    var filePath = kv.Key;
-                    var fileName = Path.GetFileName(filePath);
-
-                    File.Copy(filePath, Path.Combine(backupDir, fileName), true);
-                }
-            }
-
-            Logger.LogInfo($"Found {assembliesToConvert.Count} assemblies to shim");
-
-            foreach (var kv in assembliesToConvert)
-            {
-                var ass = kv.Value;
-                var path = kv.Key;
-
-                Logger.LogInfo($"Shimming {ass.Name.Name}");
-
-                var bepin4Ref =
-                    ass.MainModule.AssemblyReferences.FirstOrDefault(r => r.Name == "BepInEx" && r.Version.Major <= 4);
-
-                if (bepin4Ref != null)
-                    bepin4Ref.Name = "BepInEx4";
-
-                var harmonyRef =
-                    ass.MainModule.AssemblyReferences.FirstOrDefault(r => r.Name == "0Harmony" && r.Version.Major <= 1);
-
-                AssemblyNameReference harmony2Ref = null;
-                if (harmonyRef != null)
-                {
-                    harmonyRef.Name = "0Harmony_BepInEx4";
-                    harmony2Ref = new AssemblyNameReference("0Harmony", new Version(2, 0, 0, 0));
-                    ass.MainModule.AssemblyReferences.Add(harmony2Ref);
-                }
-
-                // TODO: Maybe check against current BepInEx 5 DLL version?
-                var bepin5Ref = new AssemblyNameReference("BepInEx", new Version(5, 0, 0, 0));
-                ass.MainModule.AssemblyReferences.Add(bepin5Ref);
-
-                foreach (var tr in ass.MainModule.GetTypeReferences())
-                    if (tr.Namespace.StartsWith("BepInEx"))
-                    {
-                        if (bepinTypes.Contains(tr.Name)) // If it's a shimmed type, fix up name
-                            tr.Namespace = $"BepInEx4{tr.Namespace.Substring("BepInEx".Length)}";
-                        else if (bepinFullTypes.Contains(tr.FullName)) // If it's inside bepin 5, update scope
-                            tr.Scope = bepin5Ref;
-                    }
-                    else if (tr.Namespace.StartsWith("Harmony"))
-                    {
-                        if (!harmonyTypes.Contains(tr.Name) && harmonyFullTypes.TryGetValue(tr.Name, out var @namespace)
-                        ) // If it's inside harmony 2, change ref
-                        {
-                            tr.Namespace = @namespace;
-                            tr.Scope = harmony2Ref;
-                        }
-                    }
-
-                if (PatchInMemory.Value)
-                    using (var ms = new MemoryStream())
-                    {
-                        ass.Write(ms);
-                        shimmedAssemblies[ass.FullName] = new MemoryAssembly
-                        {
-                            data = ms.ToArray(),
-                            path = path
-                        };
-                    }
-                else
-                    ass.Write(path);
-
-                ass.Dispose();
             }
         }
 
@@ -255,9 +248,27 @@ namespace BepInEx.BepIn4Patcher
 
         private static void Finish()
         {
+            if (!isInitialized)
+                return;
+
             PatchInstance.Patch(
                 typeof(TypeLoader).GetMethod(nameof(TypeLoader.FindPluginTypes)).MakeGenericMethod(typeof(PluginInfo)),
                 postfix: new HarmonyMethod(typeof(BepIn4Patcher).GetMethod(nameof(TypeLoadHook))));
+
+            PatchInstance.Patch(
+                typeof(AssemblyDefinition).GetMethod(nameof(AssemblyDefinition.Write), new[] {typeof(Stream)}),
+                new HarmonyMethod(typeof(BepIn4Patcher).GetMethod(nameof(CheckAndShimAssembly))));
+        }
+
+        public static void CheckAndShimAssembly(AssemblyDefinition __instance)
+        {
+            try
+            {
+                ShimPlugin(__instance);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         private static void RunPatcher()
@@ -287,6 +298,8 @@ namespace BepInEx.BepIn4Patcher
             AppDomain.CurrentDomain.AssemblyResolve += ResolveBepInEx4Assemblies;
 
             Logger.LogInfo("Starting BepInEx4 Migrator!");
+
+            Prepare();
 
             ShimPlugins();
 
