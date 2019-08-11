@@ -204,16 +204,30 @@ namespace BepInEx.BepIn4Patcher
             }
         }
 
-        public static void TypeLoadHook(ref Dictionary<AssemblyDefinition, List<PluginInfo>> __result, string directory,
+        public static void TypeLoadHook(ref Dictionary<string, List<PluginInfo>> __result, string directory,
             Func<TypeDefinition, PluginInfo> typeSelector)
         {
             if (directory != Paths.PluginPath)
                 return;
 
+            var results = new Dictionary<string, List<PluginInfo>>();
+            var cache = TypeLoader.LoadAssemblyCache<PluginInfo>("bepinex4_chainloader");
+
             foreach (var dll in Directory.GetFiles(Path.GetFullPath(PluginsPath), "*.dll",
                 SearchOption.TopDirectoryOnly))
                 try
                 {
+                    if (cache != null && cache.TryGetValue(dll, out var cacheEntry))
+                    {
+                        var lastWrite = File.GetLastWriteTimeUtc(dll).Ticks;
+                        if (lastWrite == cacheEntry.Timestamp)
+                        {
+                            __result[dll] = cacheEntry.CacheItems;
+                            results[dll] = cacheEntry.CacheItems;
+                            continue;
+                        }
+                    }
+
                     var ass = AssemblyDefinition.ReadAssembly(dll, readerParameters);
 
                     if (shimmedAssemblies.TryGetValue(ass.FullName, out var memAsm))
@@ -238,12 +252,16 @@ namespace BepInEx.BepIn4Patcher
                             loadedMemoryAssemblies[ass.FullName] = Assembly.Load(memAsm.data);
                         }
 
-                    __result[ass] = matches;
+                    __result[dll] = matches;
+                    results[dll] = matches;
+                    ass.Dispose();
                 }
                 catch (Exception e)
                 {
                     Logger.LogError(e.ToString());
                 }
+
+            TypeLoader.SaveAssemblyCache("bepinex4_chainloader", results);
         }
 
         private static void Finish()
