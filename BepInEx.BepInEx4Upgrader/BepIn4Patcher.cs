@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
-using BepInEx.Contract;
 using BepInEx.Logging;
 using HarmonyLib;
 using Mono.Cecil;
@@ -22,23 +21,20 @@ namespace BepInEx.BepIn4Patcher
         private static readonly ConfigFile Config =
             new ConfigFile(Path.Combine(Paths.ConfigPath, "bepinex4loader.cfg"), true);
 
-        private static readonly ConfigWrapper<string> BepInEx4PluginsPath = Config.Wrap(
-            "Paths",
-            "BepInEx4Plugins",
-            "Location of BepInEx 4 plugins relative to BepInEx root folder",
-            "");
+        private static readonly ConfigWrapper<string> BepInEx4PluginsPath = Config.Wrap<string>(
+            "Paths", "BepInEx4Plugins",
+            "",
+            new ConfigDescription("Location of BepInEx 4 plugins relative to BepInEx root folder"));
 
         private static readonly ConfigWrapper<bool> BackUpAssemblies = Config.Wrap(
-            "Patching",
-            "BackupAssemblies",
-            "Whether to back up original assemblies in bepinex4_backup folder",
-            true);
+            "Patching", "BackupAssemblies",
+            true,
+            new ConfigDescription("Whether to back up original assemblies in bepinex4_backup folder"));
 
         private static readonly ConfigWrapper<bool> PatchInMemory = Config.Wrap(
-            "Patching",
-            "PatchInMemory",
-            "If true, will perform patching in memory",
-            false);
+            "Patching", "PatchInMemory",
+            false,
+            new ConfigDescription("If true, will perform patching in memory"));
 
         private static string PluginsPath;
         private static DefaultAssemblyResolver resolver;
