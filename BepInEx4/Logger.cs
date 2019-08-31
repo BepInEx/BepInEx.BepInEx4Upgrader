@@ -1,4 +1,5 @@
-﻿using BepInEx4.Logging;
+﻿using BepInEx.Logging;
+using BepInEx4.Logging;
 
 namespace BepInEx4
 {

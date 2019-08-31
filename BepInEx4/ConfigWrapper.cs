@@ -1,7 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using BepInEx;
-using BepInEx4.Logging;
+using BepInEx.Logging;
 
 namespace BepInEx4
 {

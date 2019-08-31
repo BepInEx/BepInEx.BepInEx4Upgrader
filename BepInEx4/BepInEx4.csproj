@@ -103,7 +103,6 @@
     <Compile Include="Harmony\UpgradeToLatestVersion.cs" />
     <Compile Include="Logging\BaseLogger.cs" />
     <Compile Include="Logger.cs" />
-    <Compile Include="Logging\LogLevel.cs" />
     <Compile Include="Logging\LoggerTraceListener.cs" />
     <Compile Include="Logging\UnityLogWriter.cs" />
     <Compile Include="Paths.cs" />

@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using BepInEx;
-using BepInEx4.Logging;
+using BepInEx.Logging;
 
 namespace BepInEx4
 {

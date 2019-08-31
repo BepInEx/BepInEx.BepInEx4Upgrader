@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using BepInEx4.Logging;
+using BepInEx.Logging;
 
 namespace BepInEx4.Bootstrap
 {
