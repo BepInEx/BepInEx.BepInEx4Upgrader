@@ -74,7 +74,7 @@ namespace BepInEx.BepIn4Patcher
                 return false;
 
             if (plugin.MainModule.AssemblyResolver is DefaultAssemblyResolver pluginResolver)
-                pluginResolver.ResolveFailure += ResolveBepInEx4CecilAssembly;
+                pluginResolver.ResolveFailure += ResolveShimmedBepInEx;
 
             if (BackUpAssemblies.Value && filePath != null)
             {
@@ -199,7 +199,7 @@ namespace BepInEx.BepIn4Patcher
                 }
                 catch (Exception e)
                 {
-                    Logger.LogWarning($"Skipping loading {name} because: {e.Message}");
+                    Logger.LogWarning($"Skipping loading {name} because: {e.Message}.\n{e.StackTrace}");
                 }
             }
         }
@@ -294,22 +294,7 @@ namespace BepInEx.BepIn4Patcher
             resolver = new DefaultAssemblyResolver();
             readerParameters = new ReaderParameters {AssemblyResolver = resolver};
 
-            resolver.ResolveFailure += (sender, reference) =>
-            {
-                var name = new AssemblyName(reference.FullName);
-
-                if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters,
-                        out var assembly) ||
-                    Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
-                    Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly) ||
-                    Utility.TryResolveDllAssembly(name, PluginsPath, readerParameters, out assembly))
-                    return assembly;
-
-                if (shimmedAssemblies.TryGetValue(reference.FullName, out var memAsm))
-                    return AssemblyDefinition.ReadAssembly(new MemoryStream(memAsm.data), readerParameters);
-
-                return ResolveBepInEx4CecilAssembly(sender, reference);
-            };
+            resolver.ResolveFailure += ResolveShimmedBepInEx;
 
             PluginsPath = Path.Combine(Paths.BepInExRootPath, BepInEx4PluginsPath.Value);
 
@@ -325,6 +310,23 @@ namespace BepInEx.BepIn4Patcher
 
             BepInEx4.Paths.PluginPath = PluginsPath;
             BepInEx4.Logger.SetLogger(new BepIn4Logger());
+        }
+
+        private static AssemblyDefinition ResolveShimmedBepInEx(object sender, AssemblyNameReference reference)
+        {
+            var name = new AssemblyName(reference.FullName);
+
+            if (
+                Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters,
+                    out var assembly) ||
+                Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
+                Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly) ||
+                Utility.TryResolveDllAssembly(name, PluginsPath, readerParameters, out assembly)) return assembly;
+
+            if (shimmedAssemblies.TryGetValue(reference.FullName, out var memAsm))
+                return AssemblyDefinition.ReadAssembly(new MemoryStream(memAsm.data), readerParameters);
+
+            return ResolveBepInEx4CecilAssembly(sender, reference);
         }
 
         private static AssemblyDefinition ResolveBepInEx4CecilAssembly(object sender, AssemblyNameReference reference)
